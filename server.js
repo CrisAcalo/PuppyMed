@@ -19,29 +19,30 @@ app.post("/webhook", async (req, res) => {
     console.log("Incoming webhook message:", JSON.stringify(req.body, null, 2));
 
     // check if the webhook request contains a message
-    // details on WhatsApp text message payload: https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
     const message = req.body.entry?.[0]?.changes[0]?.value?.messages?.[0];
 
-    // check if the incoming message contains text
-    if (message?.type === "text") {
+    let data = {};
 
-        // send a reply message as per the docs here https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
+    if (message) {
+
+
+        data = {
+            messaging_product: "whatsapp",
+            to: message.from,
+            text: { body: "Echo: " + message.text.body },
+            context: {
+                message_id: message.id, // shows the message as a reply to the original user message
+            },
+        }
+
         await axios({
             method: "POST",
             url: `https://graph.facebook.com/${API_VERSION}/${BUSINESS_PHONE}/messages`,
             headers: {
                 Authorization: `Bearer ${API_TOKEN}`,
             },
-            data: {
-                messaging_product: "whatsapp",
-                to: message.from,
-                text: { body: "Echo: " + message.text.body },
-                context: {
-                    message_id: message.id, // shows the message as a reply to the original user message
-                },
-            },
+            data: data,
         });
-
         // mark incoming message as read
         await axios({
             method: "POST",
@@ -86,3 +87,64 @@ Checkout README.md to start.</pre>`);
 app.listen(PORT, () => {
     console.log(`Server is listening on port: ${PORT}`);
 });
+
+
+
+// if (message.type === "interactive") {
+//     data = {
+//         messaging_product: "whatsapp",
+//         to: message.from,
+//         text: { body: "Has interactuado con un botón! :D" },
+//         context: {
+//             message_id: message.id, // shows the message as a reply to the original user message
+//         },
+//     }
+// } else if (message.text.body === "button") {
+//     data = {
+//         messaging_product: "whatsapp",
+//         to: message.from,
+//         type: "interactive",
+//         interactive: {
+//             type: "button",
+//             body: {
+//                 text: "Here is a button example",
+//             },
+//             action: {
+//                 buttons: [
+//                     {
+//                         type: "reply",
+//                         reply: {
+//                             id: "button1",
+//                             title: "Button 1",
+//                         },
+//                     },
+//                     {
+//                         type: "reply",
+//                         reply: {
+//                             id: "button2",
+//                             title: "Button 2",
+//                         },
+//                     },
+//                 ],
+//             },
+//         },
+//     }
+// } else if (message.text.body === "image") {
+//     data = {
+//         messaging_product: "whatsapp",
+//         to: message.from,
+//         type: "image",
+//         image: {
+//             link: "https://img.freepik.com/fotos-premium/imagen-fondo_910766-187.jpg",
+//         },
+//     }
+// } else {
+//     data = {
+//         messaging_product: "whatsapp",
+//         to: message.from,
+//         text: { body: "Echo: " + message.text.body },
+//         context: {
+//             message_id: message.id, // shows the message as a reply to the original user message
+//         },
+//     }
+// }
