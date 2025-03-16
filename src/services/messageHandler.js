@@ -1,16 +1,30 @@
 import whatsappService from './whatsappService.js';
+import appendToSheet from './googleSheetsService.js';
 
 class MessageHandler {
+
+    constructor() {
+        this.appointmentState = {};
+    }
 
     async handleIncomingMessage(message, senderInfo) {
         if (message?.type === 'text') {
 
             const incomingMessage = message.text.body.toLowerCase().trim();
+
+            const messageParts = incomingMessage.split(':');
+
             if (this.isGretting(incomingMessage)) {
                 await this.sendWelcomeMessage(message.from, message.id, senderInfo);
                 await this.sendWelcomeMenu(message.from);
-            } else if (incomingMessage == 'media') {
-                await this.sendMedia(message.from, message.id);
+            } else if (messageParts[0] == 'media') {
+                if (!messageParts[1]) {
+                    const response = 'Por favor, envía el tipo de archivo que deseas recibir: image, audio, video, document';
+                    await whatsappService.sendMessage(message.from, response, message.id);
+                }
+                await this.sendMedia(message.from, message.id, messageParts[1]);
+            } else if (this.appointmentState[message.from]) {
+                await this.handleAppointmentFlow(message.from, incomingMessage);
             } else {
                 const response = `Echo: ${message.text.body}`;
                 await whatsappService.sendMessage(message.from, response, message.id);
@@ -62,9 +76,11 @@ class MessageHandler {
     async handleWelcomeMenu(to, titleOption, idOption) {
         let message = '';
         switch (idOption) {
-            case 'welcomeMenuOp1':
-                message = '¡Genial! ¿Qué día te gustaría agendar tu cita?';
+            case 'welcomeMenuOp1': // Agendar
+                // message = '¡Genial! ¿Qué día te gustaría agendar tu cita?';
                 // await this.sendAppointmentMenu(to);
+                this.appointmentState[to] = { step: 'name' };
+                message = 'Por favor dime, ¿Cuál es tu nombre? 🤗';
                 break;
             case 'welcomeMenuOp2':
                 message = '¡Claro! Aquí tienes nuestros servicios 🐾';
@@ -82,25 +98,82 @@ class MessageHandler {
         await whatsappService.sendMessage(to, message);
     }
 
-    async sendMedia(to, messageId) {
-        // const mediaUrl = 'https://letsenhance.io/static/8f5e523ee6b2479e26ecc91b9c25261e/1015f/MainAfter.jpg';
-        // const mediaType = 'image';
-        // const caption = 'Imagen ejemplo';
-
-        // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-audio.aac';
-        // const mediaType = 'audio';
-        // const caption = 'Audio ejemplo';
-
-        // const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-video.mp4';
-        // const mediaType = 'video';
-        // const caption = 'Video ejemplo';
-
-        const mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf';
-        const mediaType = 'document';
-        const caption = 'Documento ejemplo';
-
-        await whatsappService.sendMediaMessage(to, mediaUrl, mediaType, messageId, caption);
+    async sendMedia(to, messageId, type) {
+        let mediaUrl = '';
+        switch (type) {
+            case 'image':
+                mediaUrl = 'https://letsenhance.io/static/8f5e523ee6b2479e26ecc91b9c25261e/1015f/MainAfter.jpg';
+                break;
+            case 'audio':
+                mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-audio.aac';
+                break;
+            case 'video':
+                mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-video.mp4';
+                break;
+            case 'document':
+                mediaUrl = 'https://s3.amazonaws.com/gndx.dev/medpet-file.pdf';
+                break
+            default:
+                throw new Error('Tipo de archivo no soportado');
+                break;
+        }
+        await whatsappService.sendMediaMessage(to, mediaUrl, type, messageId, `${type} ejemplo`);
     }
+
+    completeAppointment(to) {
+        const appointment = this.appointmentState[to];
+        delete this.appointmentState[to];
+
+        const data = [
+            to,
+            appointment.name,
+            appointment.petName,
+            appointment.petType,
+            appointment.reason,
+            new Date().toISOString()
+        ]
+        appendToSheet(data);
+        return `
+Los datos de tu cita son: 
+    - Nombre: ${appointment.name}
+    - Mascota: ${appointment.petName}
+    - Tipo: ${appointment.petType}
+    - Motivo: ${appointment.reason}
+Gracias por confiar en PuppyMed 😉
+Nos pondremos en contacto contigo para confirmar la fecha y hora de la cita 🐾
+        `;
+
+    }
+
+    async handleAppointmentFlow(to, message) {
+        const state = this.appointmentState[to];
+        let response;
+
+        switch (state.step) {
+            case 'name':
+                state.name = message;
+                state.step = 'petName';
+                response = '¿Cuál es el nombre de tu mascota?';
+                break;
+            case 'petName':
+                state.petName = message;
+                state.step = 'petType';
+                response = '¿Qué tipo de mascota es? 🐶, 🐱, ...';
+                break;
+            case 'petType':
+                state.petType = message;
+                state.step = 'reason';
+                response = '¿Cuál es el motivo de la consulta?';
+                break;
+            case 'reason':
+                state.reason = message;
+                
+                response = this.completeAppointment(to);
+                break;
+        }
+        await whatsappService.sendMessage(to, response)
+    }
+
 
     isGretting(message) {
         const grettings = ['hi', 'hello', 'hola', 'hey', 'saludos',
