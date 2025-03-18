@@ -84,23 +84,23 @@ class MessageHandler {
                 this.appointmentState[to] = { step: 'name' };
                 message = 'Por favor dime, ¿Cuál es tu nombre? 🤗';
                 break;
-            case 'welcomeMenuOp2':
+            case 'welcomeMenuOp2': // Consulta
                 // message = 'Opción deshabilitada por falta de presupuesto';
                 message = 'Por favor escribe tu pregunta 🤓';
                 this.assistantState[to] = { step: 'question' };
                 break;
-            case 'welcomeMenuOp3':
-                message = '¡Claro! Aquí tienes nuestras agencias 🐾';
-                // await this.sendAgenciesMenu(to);
+            case 'welcomeMenuOp3': // Agencias
+                message = '¡Claro! Aquí tienes nuestra agencia 🐾';
+                await this.sendLocation(to);
                 break;
-            case 'assistantOp1':
+            case 'assistantOp1': // Sí, gracias
                 message = '¡Gracias por preferirmos! 😊';
                 break;
-            case 'assistantOp2':
+            case 'assistantOp2': // Hacer otra pregunta
                 message = 'Por favor escribe tu pregunta 🤓';
                 this.assistantState[to] = { step: 'question' };
                 break;
-            case 'assistantOp3':
+            case 'assistantOp3': // Contactar
                 message = '¡Claro! Aquí tienes nuestros datos de contacto 🐾';
                 await this.sendContact(to);
                 break;
@@ -131,31 +131,6 @@ class MessageHandler {
                 break;
         }
         await whatsappService.sendMediaMessage(to, mediaUrl, type, messageId, `${type} ejemplo`);
-    }
-
-    completeAppointment(to) {
-        const appointment = this.appointmentState[to];
-        delete this.appointmentState[to];
-
-        const data = [
-            to,
-            appointment.name,
-            appointment.petName,
-            appointment.petType,
-            appointment.reason,
-            new Date().toISOString()
-        ]
-        appendToSheet(data);
-        return `
-Los datos de tu cita son: 
-    - Nombre: ${appointment.name}
-    - Mascota: ${appointment.petName}
-    - Tipo: ${appointment.petType}
-    - Motivo: ${appointment.reason}
-Gracias por confiar en PuppyMed 😉
-Nos pondremos en contacto contigo para confirmar la fecha y hora de la cita 🐾
-        `;
-
     }
 
     async handleAppointmentFlow(to, message) {
@@ -275,6 +250,14 @@ Nos pondremos en contacto contigo para confirmar la fecha y hora de la cita 🐾
         await whatsappService.sendContactMessage(to, contact);
     }
 
+    async sendLocation(to) {
+        const latitude = '37.7749';
+        const longitude = '-122.4194';
+        const name = 'San Francisco';
+        const address = '123 Calle de las Mascotas';
+        await whatsappService.sendLocationMessage(to, latitude, longitude, name, address);
+    }
+
 
     isGretting(message) {
         const grettings = ['hi', 'hello', 'hola', 'hey', 'saludos',
@@ -284,6 +267,32 @@ Nos pondremos en contacto contigo para confirmar la fecha y hora de la cita 🐾
         return grettings.includes(message);
     }
 
+
+
+    completeAppointment(to) {
+        const appointment = this.appointmentState[to];
+        delete this.appointmentState[to];
+
+        const data = [
+            to,
+            appointment.name,
+            appointment.petName,
+            appointment.petType,
+            appointment.reason,
+            new Date().toISOString()
+        ]
+        appendToSheet(data);
+        return `
+Los datos de tu cita son: 
+    - Nombre: ${appointment.name}
+    - Mascota: ${appointment.petName}
+    - Tipo: ${appointment.petType}
+    - Motivo: ${appointment.reason}
+Gracias por confiar en PuppyMed 😉
+Nos pondremos en contacto contigo para confirmar la fecha y hora de la cita 🐾
+        `;
+
+    }
     senderName(senderInfo) {
         const name = senderInfo?.profile?.name || senderInfo?.wa_id;
         return name.split(' ')[0];
