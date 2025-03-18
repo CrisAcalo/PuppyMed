@@ -162,4 +162,4 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/node,visualstudiocode
 client_secret_521945918807-qugrgml41jkeg781luekqcrfln4ejle3.apps.googleusercontent.com.json
-# src/credentials/credentials.json
+src/credentials/credentials.json
